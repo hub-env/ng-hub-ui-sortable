@@ -28,14 +28,14 @@ export class SortableBindings {
 	/**
 	 * Array of individual sortable bindings, one for each data source.
 	 */
-	bindings: SortableBinding[];
+	bindings: SortableBinding<any>[];
 
 	/**
 	 * Creates a new SortableBindings instance with multiple data sources.
 	 *
 	 * @param bindingTargets - Array of data sources (arrays, FormArrays, or signals) to bind.
 	 */
-	constructor(bindingTargets: SortableData[]) {
+	constructor(bindingTargets: SortableData<any>[]) {
 		this.bindings = bindingTargets.map((target) => new SortableBinding(target));
 	}
 
@@ -55,7 +55,7 @@ export class SortableBindings {
 	 * // Inserts 'Eve' at index 0 in names and 22 at index 0 in ages
 	 * ```
 	 */
-	injectIntoEvery(index: number, items: any[]) {
+	injectIntoEvery(index: number, items: unknown[]) {
 		this.bindings.forEach((b, i) => b.insert(index, items[i]));
 	}
 
@@ -72,7 +72,7 @@ export class SortableBindings {
 	 * // Returns ['Alice', 25] if those are the values at index 0
 	 * ```
 	 */
-	getFromEvery(index: number) {
+	getFromEvery(index: number): unknown[] {
 		return this.bindings.map((b) => b.get(index));
 	}
 
@@ -92,7 +92,7 @@ export class SortableBindings {
 	 * // Removes and returns ['Bob', 30] if those were at index 1
 	 * ```
 	 */
-	extractFromEvery(index: number) {
+	extractFromEvery(index: number): unknown[] {
 		return this.bindings.map((b) => b.remove(index));
 	}
 

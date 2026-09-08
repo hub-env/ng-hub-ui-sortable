@@ -192,6 +192,8 @@ export class AppModule {}
 | `options`         | `Options`                                        | Objeto de opciones nativo de SortableJS. Proporciona una nueva referencia de objeto para disparar actualizaciones de opciones                     |
 | `cloneFunction`   | `(item: any) => any`                             | Función de clonación personalizada para el modo de clonación. Te permite personalizar cómo se clonan los elementos                                |
 | `autoUpdateArray` | `boolean`                                        | Controla las actualizaciones automáticas del array. Cuando es `true` (por defecto), los arrays se actualizan automáticamente. Cuando es `false`, tienes el control total (similar a Angular CDK) |
+| `keyboardSorting` | `boolean`                                        | Reordenación por teclado, activada por defecto. Ver [Accesibilidad](#accesibilidad) |
+| `keyboardMessages` | `Partial<SortableKeyboardMessages>`             | Sustituye las frases que anuncia la reordenación por teclado; lo que no indiques conserva su texto en inglés |
 
 ### Inputs de opciones de SortableJS
 
@@ -710,14 +712,92 @@ Aquí tienes algunos problemas comunes y cómo resolverlos:
 
 Si los problemas persisten, abre una incidencia en: https://github.com/carlos-morcillo/ng-hub-ui-sortable/issues
 
+## Listas conectadas con `SortableBindings`
+
+Un solo arrastre puede mantener varios arrays paralelos en fila. `SortableBindings` envuelve
+un conjunto de listas y aplica cada inserción y cada borrado en el mismo índice de todas,
+que es lo que necesita una tabla guardada como un array por columna. Siempre ha sido lo que
+`[hubSortable]` acepta en lugar de un array; desde la **22.2.0** además se exporta, así que
+también se puede construir y tipar:
+
+```typescript
+import { SortableBindings } from 'ng-hub-ui-sortable';
+
+names = ['Alice', 'Bob', 'Charlie'];
+ages = [25, 30, 35];
+emails = ['alice@example.com', 'bob@example.com', 'charlie@example.com'];
+
+readonly rows = new SortableBindings([this.names, this.ages, this.emails]);
+```
+
+```html
+<tbody [hubSortable]="rows">
+	@for (name of names; track name; let i = $index) {
+		<tr>
+			<td>{{ name }}</td>
+			<td>{{ ages[i] }}</td>
+			<td>{{ emails[i] }}</td>
+		</tr>
+	}
+</tbody>
+```
+
+Arrastrar la segunda fila arriba mueve `'Bob'`, `30` y `bob@example.com` juntos. Los arrays
+tienen que mantener la misma longitud y el mismo orden: la clase los empareja por índice y
+por nada más. Conectar dos listas *distintas* para que los elementos viajen entre ellas es
+otra cosa, y es la opción `group`, no esta clase.
+
+Cada lista dentro de un `SortableBindings` es un `SortableBinding`, exportado junto a él, que
+es la pieza que esconde la diferencia entre un array, un `FormArray` y un
+`WritableSignal<T[]>` detrás de `insert` / `get` / `remove`.
+
 ## Accesibilidad
 
-La reordenación de SortableJS es **solo con puntero**: no existe un camino de teclado ni
-de lector de pantalla para el drag-and-drop, y este wrapper aún no lo añade. Cuando
-reordenar sea una capacidad esencial, acompaña la lista de una alternativa que opere
-sobre el mismo array — por ejemplo botones de "subir / bajar" por elemento — para que
-los usuarios de teclado y tecnologías de asistencia logren el mismo resultado. Un
-announcer `aria-live` para las operaciones de arrastre queda como trabajo futuro.
+La reordenación de SortableJS es solo con puntero: escucha `mousedown` y `touchstart`, y
+nada más. Desde la **22.2.0** este wrapper añade la otra mitad, así que una lista se
+reordena con el teclado sin que tengas que hacer nada.
+
+Cada elemento — o su `handle`, si lo hay — pasa a ser una parada de tabulación, y a partir
+de ahí la interacción sigue el modelo agarrar / mover / soltar de las prácticas de autoría
+de WAI-ARIA:
+
+| Tecla | Sin nada agarrado | Con un elemento agarrado |
+| --- | --- | --- |
+| `Enter` / `Espacio` | agarra el elemento | lo suelta donde esté |
+| `↑` / `←` | nada (la página sigue desplazándose) | lo mueve una posición atrás |
+| `↓` / `→` | nada | lo mueve una posición adelante |
+| `Inicio` / `Fin` | nada | lo lleva a la primera / última posición |
+| `Escape` | nada | abandona el movimiento y lo devuelve a su sitio |
+
+Cada uno de esos pasos se anuncia por una región viva `polite` que la directiva añade al
+documento y retira al destruirse, porque el resto del retorno es puramente visual. Las
+flechas solo se capturan cuando hay algo agarrado, así que una lista dentro de una página
+con scroll se sigue desplazando.
+
+Reordenar con el teclado obedece las mismas reglas que un arrastre: está apagado mientras
+`disabled` sea `true` o `sort` sea `false`, respeta `autoUpdateArray` — en modo manual el
+array queda en tus manos, igual que tras un drop — y emite las mismas salidas `update` y
+`sortEvent`, con `oldIndex` y `newIndex` rellenos.
+
+Los anuncios están en inglés por defecto. Este paquete no lleva sistema de traducción, así
+que localizarlos consiste en entregar las frases:
+
+```typescript
+messages: Partial<SortableKeyboardMessages> = {
+	grabbed: (position, total) => `Elemento ${position} de ${total} agarrado.`,
+	moved: (position, total) => `Movido a la posición ${position} de ${total}.`,
+	dropped: (position, total) => `Soltado en la posición ${position} de ${total}.`,
+	cancelled: (position, total) => `Movimiento cancelado. De vuelta en la posición ${position} de ${total}.`
+};
+```
+
+```html
+<div [hubSortable]="items" [keyboardMessages]="messages">…</div>
+```
+
+Para apagar el camino de teclado — porque la aplicación pone el suyo — usa
+`[keyboardSorting]="false"`. La directiva retira entonces las paradas de tabulación que
+había añadido y no toca ningún `tabindex` puesto por ti.
 
 ## Changelog
 

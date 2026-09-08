@@ -190,6 +190,8 @@ export class AppModule {}
 | `options`         | `Options`                                        | Native SortableJS options object. Provide a new object reference to trigger option updates                                                         |
 | `cloneFunction`   | `(item: any) => any`                             | Custom clone function for clone mode. Allows you to customize how items are cloned                                                                 |
 | `autoUpdateArray` | `boolean`                                        | Controls automatic array updates. When `true` (default), arrays update automatically. When `false`, you have full control (similar to Angular CDK) |
+| `keyboardSorting` | `boolean`                                        | Keyboard reordering, on by default. See [Accessibility](#accessibility) |
+| `keyboardMessages` | `Partial<SortableKeyboardMessages>`             | Overrides for the sentences the keyboard reorder announces; anything left out keeps its English default |
 
 ### SortableJS Option Inputs
 
@@ -708,14 +710,91 @@ Here are some common issues and how to resolve them:
 
 If problems persist, open an issue at: https://github.com/carlos-morcillo/ng-hub-ui-sortable/issues
 
+## Connected lists with `SortableBindings`
+
+A single drag can keep several parallel arrays in step. `SortableBindings` wraps a set of
+lists and applies every insertion and removal at the same index across all of them, which
+is what a table stored as one array per column needs. It has always been what
+`[hubSortable]` accepts in place of a plain array; from **22.2.0** it is exported, so it
+can also be constructed and typed:
+
+```typescript
+import { SortableBindings } from 'ng-hub-ui-sortable';
+
+names = ['Alice', 'Bob', 'Charlie'];
+ages = [25, 30, 35];
+emails = ['alice@example.com', 'bob@example.com', 'charlie@example.com'];
+
+readonly rows = new SortableBindings([this.names, this.ages, this.emails]);
+```
+
+```html
+<tbody [hubSortable]="rows">
+	@for (name of names; track name; let i = $index) {
+		<tr>
+			<td>{{ name }}</td>
+			<td>{{ ages[i] }}</td>
+			<td>{{ emails[i] }}</td>
+		</tr>
+	}
+</tbody>
+```
+
+Dragging the second row to the top moves `'Bob'`, `30` and `bob@example.com` together. The
+arrays must stay the same length and in the same order — the class pairs them by index and
+nothing else. Connecting two *different* lists so items travel between them is a separate
+feature, and is the `group` option, not this class.
+
+Each list inside a `SortableBindings` is a `SortableBinding`, exported alongside it, which
+is the piece that hides the difference between an array, a `FormArray` and a
+`WritableSignal<T[]>` behind `insert` / `get` / `remove`.
+
 ## Accessibility
 
-SortableJS reordering is **pointer-only**: there is no built-in keyboard or screen-reader
-path for drag-and-drop, and this wrapper does not add one yet. Where reordering is an
-essential capability, pair the sortable list with an alternative affordance operating on
-the same array — for example per-item "move up / move down" buttons — so keyboard and
-assistive-technology users can achieve the same result. An `aria-live` announcer story
-for drag operations is tracked as future work.
+SortableJS reordering is pointer-only: it binds `mousedown` and `touchstart` and nothing
+else. Since **22.2.0** this wrapper adds the other half, so a list can be reordered from
+the keyboard without any work on your side.
+
+Every item — or its `handle`, when one is configured — becomes a Tab stop, and from there
+the interaction follows the grab / move / drop model of the WAI-ARIA authoring practices:
+
+| Key | While nothing is held | While an item is held |
+| --- | --- | --- |
+| `Enter` / `Space` | picks the item up | drops it where it now sits |
+| `↑` / `←` | nothing (the page still scrolls) | moves the item one position back |
+| `↓` / `→` | nothing | moves the item one position forward |
+| `Home` / `End` | nothing | sends the item to the first / last position |
+| `Escape` | nothing | abandons the move and puts the item back |
+
+Each of those steps is announced through a polite live region the directive appends to the
+document and removes on destroy, because the rest of the feedback is purely visual. The
+arrows are only claimed once an item is held, so a list inside a scrollable page stays
+scrollable.
+
+Reordering with the keyboard obeys the same rules a drag does: it is off while `disabled`
+is `true` or `sort` is `false`, it honours `autoUpdateArray` — in manual mode the array is
+left to you, exactly as after a drop — and it emits the same `update` and `sortEvent`
+outputs, with `oldIndex` and `newIndex` filled in.
+
+The announcements are English by default. This package carries no translation machinery, so
+localising them means handing over the sentences:
+
+```typescript
+messages: Partial<SortableKeyboardMessages> = {
+	grabbed: (position, total) => `Elemento ${position} de ${total} agarrado.`,
+	moved: (position, total) => `Movido a la posición ${position} de ${total}.`,
+	dropped: (position, total) => `Soltado en la posición ${position} de ${total}.`,
+	cancelled: (position, total) => `Movimiento cancelado. De vuelta en la posición ${position} de ${total}.`
+};
+```
+
+```html
+<div [hubSortable]="items" [keyboardMessages]="messages">…</div>
+```
+
+To turn the keyboard path off — because the application supplies its own — set
+`[keyboardSorting]="false"`. The directive then removes the tab stops it added and leaves
+any `tabindex` you set yourself alone.
 
 ## Changelog
 

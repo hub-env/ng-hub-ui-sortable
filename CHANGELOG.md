@@ -4,6 +4,56 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [22.2.0] - 2026-09-08
+
+### Added
+
+- **The list can be reordered from the keyboard.** SortableJS binds `mousedown` and `touchstart`
+  and nothing else, so until now `hubSortable` simply did not work for anyone who does not drag —
+  not a rough edge, an absent feature. Each item, or its `handle` when one is configured, is now a
+  Tab stop, and from there the interaction is the grab / move / drop model of the WAI-ARIA
+  authoring practices: `Enter` or `Space` picks the item up, the arrows move it, `Home` and `End`
+  send it to either end, `Enter`/`Space` drops it and `Escape` puts it back. Every step is
+  announced through a polite live region, since the rest of the feedback is visual. The arrows are
+  claimed only while an item is held, so the page underneath still scrolls. Reordering this way
+  obeys the same rules a drag does — off while `disabled` is `true` or `sort` is `false`, honouring
+  `autoUpdateArray`, emitting the same `update` and `sortEvent` with both indexes filled in.
+  The alternative model, arrows reordering with no grab step, was rejected: it makes an arrow key
+  destructive the moment focus lands on a list.
+
+- **`keyboardSorting`, to turn that off**, for an application that already ships its own keyboard
+  path and wants only one.
+
+- **`keyboardMessages`, to translate what is announced.** The sentences are functions, not
+  templates with placeholders, so a language whose word order differs is not forced through an
+  English shape — this package carries no translation machinery and is not about to grow one.
+  `SortableKeyboardMessages` and `DEFAULT_SORTABLE_KEYBOARD_MESSAGES` are exported.
+
+- **`SortableBindings` and `SortableBinding` are exported.** `SortableBindings` is the class that
+  keeps several parallel arrays in step through one drag — a table stored as one array per column
+  is the case it exists for — and `[hubSortable]` has always accepted an instance in place of an
+  array. It was never listed in `public-api.ts`, so nobody outside the package could construct one
+  or type a field holding one: the feature was reachable only by accident. Both READMEs gained the
+  connected-lists section that explains what to do with it, because exporting a type nobody knows
+  how to use fixes nothing.
+
+- **`SortableFormArrayLike`**, the structural description of the four `FormArray` members this
+  package calls. It is what lets `SortableData` name a `FormArray` without the package taking a
+  dependency on `@angular/forms` — which is exactly what the runtime duck typing in
+  `SortableBinding` has always been doing, only now the compiler is in on it.
+
+### Changed
+
+- **BREAKING — `SortableData` is a list type instead of `any`.** It was written
+  `any | any[] | WritableSignal<any[]>`, and a union containing `any` *is* `any`, so the published
+  type accepted a number, a string or a plain object without a word from the compiler. It is now
+  `T[] | WritableSignal<T[]> | SortableFormArrayLike<T>`, with `T` defaulting to `unknown`. A
+  generic defaulting to `any` was considered and rejected for the same reason: it would have
+  compiled everywhere and warned nowhere. Nothing changes at runtime; see
+  [`BREAKING_CHANGES.md`](./BREAKING_CHANGES.md) for what stops compiling and what to write
+  instead. `SortableBinding` is generic for the same reason, so the element type survives the
+  round trip.
+
 ## [22.1.4] - 2026-09-06
 
 ### Added

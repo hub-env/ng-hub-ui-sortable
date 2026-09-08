@@ -10,6 +10,64 @@ file is the only notice you get.
 Coming from `ngx-sortablejs` or `@worktile/ngx-sortablejs` is a different question: that is a change
 of package, not of version, and it has its own document — [`MIGRATION.md`](./MIGRATION.md).
 
+## [22.2.0]
+
+### `SortableData` is a list type, not `any`
+
+- **Change**: the type was written `any | any[] | WritableSignal<any[]>`, and TypeScript collapses
+  a union containing `any` to `any`. So the published type said "anything at all": `[hubSortable]`
+  accepted a number, a string, a `Date` or a plain object and the compiler had nothing to say. It
+  is now `T[] | WritableSignal<T[]> | SortableFormArrayLike<T>`, with `T` defaulting to `unknown` —
+  a list of something, rather than anything. `SortableFormArrayLike` is new and exported: it
+  describes structurally the four `FormArray` members this package calls, which is what the
+  runtime duck typing in `SortableBinding` has always done.
+
+- **Impact**: a template binding `[hubSortable]` to an array, a signal or a `FormArray` compiles
+  exactly as before, and so does `null` or leaving it unbound. What stops compiling is binding
+  something that was never reorderable, and a hand-written `const data: SortableData = …` holding
+  one. `SortableBinding` also gained a type parameter, so `binding.get(0)` and `binding.remove(0)`
+  now return `unknown` instead of `any` where the element type cannot be inferred: an unchecked
+  property access on the result is reported where it used to pass.
+
+- **What happens if you do nothing**: nothing at runtime. Not one line of behaviour changed —
+  this is a type-level correction, and every error it raises is an error that was always there.
+
+- **Migration**: name the element type where the compiler cannot infer it, and drop the casts the
+  old `any` made necessary.
+
+    ```typescript
+    // Before — the cast was needed because the target was `any`
+    const binding = new SortableBinding(formArray as any);
+    const control = binding.get(0);
+
+    // After
+    const binding = new SortableBinding<AbstractControl>(formArray);
+    const control: AbstractControl = binding.get(0);
+    ```
+
+    ```typescript
+    // Before — compiled, and was never reorderable
+    const data: SortableData = { first: 'A', second: 'B' };
+
+    // After — say what the list holds
+    const data: SortableData<string> = ['A', 'B'];
+    ```
+
+### Keyboard reordering is on by default
+
+- **Change**: `[hubSortable]` now makes each item a Tab stop and reorders the list from the
+  keyboard. It is not a breaking change to the API — the new `keyboardSorting` input defaults to
+  `true` — but it changes the DOM: items that carried no `tabindex` now carry `tabindex="0"`, so
+  the tab order of a page holding a long list gets longer.
+
+- **Impact**: a `tabindex` you set yourself is never overwritten, and the attribute is withdrawn
+  again while the list is `disabled` or `sort` is `false`. A snapshot test that asserts the exact
+  attributes of a list item will see the new one.
+
+- **What happens if you do nothing**: the list becomes usable without a pointer, which is the
+  point. Should the application already provide its own keyboard path and want only one, set
+  `[keyboardSorting]="false"` and the directive adds nothing.
+
 ## [22.1.4]
 
 No API change. One behaviour a consumer may have been leaning on is gone.

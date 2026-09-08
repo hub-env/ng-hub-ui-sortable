@@ -1,4 +1,7 @@
 export * from './lib/array-helpers';
+export * from './lib/sortable-binding';
+export * from './lib/sortable-bindings';
+export * from './lib/sortable-keyboard';
 export * from './lib/sortable.directive';
 export * from './lib/sortable.module';
 export * from './lib/sortable.provider';

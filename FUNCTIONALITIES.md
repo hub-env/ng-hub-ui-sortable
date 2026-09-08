@@ -3,8 +3,13 @@
 This table details the functionalities of the `ng-hub-ui-sortable` library and indicates which ones
 are covered by interactive examples.
 
-The library ships one directive, `[hubSortable]`, three array helpers, a standalone provider and a
-deprecated NgModule. It has no styles of its own: list items are dressed by the consumer.
+The library ships one directive, `[hubSortable]`, three array helpers, the multi-list binding
+classes, a standalone provider and a deprecated NgModule. It has no styles of its own: list items
+are dressed by the consumer.
+
+A ✅ in the keyboard rows means the behaviour is demonstrated by the interactive examples, not that
+an example sets the input by name: keyboard reordering is on by default, so every list on the
+documentation site already answers to `Enter`, `Space` and the arrows.
 
 ## Directive — core inputs (`[hubSortable]`)
 
@@ -20,6 +25,10 @@ deprecated NgModule. It has no styles of its own: list items are dressed by the 
 | **Update mode** | Automatic array mutation (`autoUpdateArray`, default `true`) | ✅ |
 | | Manual mode (`[autoUpdateArray]="false"`) | ✅ |
 | **Cloning** | Custom clone factory (`cloneFunction`) | ❌ |
+| **Keyboard** | Grab / move / drop with `Enter`, `Space`, the arrows, `Home`, `End` and `Escape` | ✅ |
+| | Announcements through a polite live region | ❌ |
+| | `keyboardSorting` — turns the keyboard path off | ❌ |
+| | `keyboardMessages` — translates what is announced | ❌ |
 
 ## Directive — SortableJS option inputs
 
@@ -102,7 +111,10 @@ before it emits.
 
 | Category | Functionality | Example Covered |
 | :--- | :--- | :---: |
-| **Own types** | `SortableData`, `SortableEventName`, `SortableMoveEventPayload` | ❌ |
+| **Own types** | `SortableData<T>`, `SortableFormArrayLike<T>`, `SortableEventName`, `SortableMoveEventPayload` | ❌ |
+| | `SortableKeyboardMessages`, `DEFAULT_SORTABLE_KEYBOARD_MESSAGES` | ❌ |
+| **Multi-list bindings** | `SortableBindings` — one drag reorders several parallel arrays | ❌ |
+| | `SortableBinding` — one array, `FormArray` or signal behind one interface | ❌ |
 | **Re-exports** | `Sortable`, `SortableEvent`, `Options`, `MoveEvent`, `GroupOptions`, `PullResult`, `PutResult` | ✅ |
 
 ## Platform
@@ -112,4 +124,4 @@ before it emits.
 | **SSR** | No SortableJS instance without a `window` | ❌ |
 | **Zone** | Instance created outside Angular, events re-entered into it | ❌ |
 | **Console** | The library never writes to the consuming application's console | ❌ |
-| **Accessibility** | Pointer-only: no keyboard or screen-reader path (see the README) | ❌ |
+| **Accessibility** | Keyboard reordering with live-region announcements, on by default (see the README) | ✅ |

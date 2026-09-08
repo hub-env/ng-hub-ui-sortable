@@ -1,5 +1,6 @@
 import {
 	afterNextRender,
+	computed,
 	Directive,
 	ElementRef,
 	inject,
@@ -16,6 +17,12 @@ import {
 import Sortable, { MoveEvent, Options, SortableEvent } from 'sortablejs';
 import { GLOBALS } from './globals';
 import { SortableBindings } from './sortable-bindings';
+import {
+	DEFAULT_SORTABLE_KEYBOARD_MESSAGES,
+	SortableKeyboardController,
+	SortableKeyboardMessages,
+	SortableKeyboardReorder
+} from './sortable-keyboard';
 import { INDIVIDUAL_OPTION_INPUTS } from './sortable-options';
 import { getIndexesFromEvent } from './sortable-utils';
 import { SortableService } from './sortable.service';
@@ -55,10 +62,11 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 	private injector = inject(Injector);
 
 	/**
-	 * Array of items or FormArray to be sorted.
-	 * This can be a simple array or an Angular FormArray for reactive forms.
+	 * The list to reorder: a plain array, a writable signal holding one, or a `FormArray`.
+	 * A `SortableBindings` instance is also accepted, to keep several parallel lists in step
+	 * through a single drag.
 	 */
-	readonly items = input<SortableData | undefined>(undefined, {
+	readonly items = input<SortableData<any> | SortableBindings | null | undefined>(undefined, {
 		alias: 'hubSortable'
 	});
 
@@ -184,6 +192,37 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 	 */
 	readonly autoUpdateArray = input<boolean>(true);
 
+	/**
+	 * Whether the list can also be reordered from the keyboard.
+	 *
+	 * SortableJS listens for pointer events only, so with this off the list is unusable for
+	 * anyone who does not drag with a mouse or a finger. When on (the default) every item — or
+	 * its `handle`, when one is configured — becomes a Tab stop, `Enter` or `Space` picks the
+	 * item up, the arrow keys move it, `Enter`/`Space` drops it and `Escape` puts it back; each
+	 * step is announced through a polite live region.
+	 *
+	 * Reordering follows the same rules as a drag: it is off while `disabled` is `true` or
+	 * `sort` is `false`, it honours `autoUpdateArray`, and it emits the same `update` and
+	 * `sortEvent` outputs a pointer reorder emits.
+	 *
+	 * @default true
+	 */
+	readonly keyboardSorting = input<boolean>(true);
+
+	/**
+	 * Overrides for the sentences the keyboard reorder announces. Anything left out keeps its
+	 * English default. This package ships no translation machinery on purpose, so this input is
+	 * where an application plugs its own.
+	 *
+	 * @example
+	 * ```typescript
+	 * messages = {
+	 * 	grabbed: (position: number, total: number) => `Elemento ${position} de ${total} agarrado.`
+	 * };
+	 * ```
+	 */
+	readonly keyboardMessages = input<Partial<SortableKeyboardMessages> | undefined>(undefined);
+
 	/** List of individual option input names */
 	private readonly individualOptionInputs = INDIVIDUAL_OPTION_INPUTS;
 
@@ -193,6 +232,15 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 	 */
 	private sortableInstance: Sortable | null = null;
 	private nativeEventCleanup: Array<() => void> = [];
+
+	/** Drives grab / move / drop for the keyboard, once the container is known. */
+	private keyboard: SortableKeyboardController | null = null;
+
+	/** The announcements in force: the defaults, with whatever `keyboardMessages` overrides. */
+	private readonly keyboardMessagesInEffect = computed<SortableKeyboardMessages>(() => ({
+		...DEFAULT_SORTABLE_KEYBOARD_MESSAGES,
+		...(this.keyboardMessages() ?? {})
+	}));
 
 	/**
 	 * Guard flag to prevent duplicate event emissions during a single drag operation.
@@ -265,6 +313,9 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 		}
 
 		this.applyIndividualOptionChanges(changes);
+		// `disabled`, `sort`, `draggable`, `handle` and `keyboardSorting` all decide whether an
+		// item is a Tab stop at all, so the tab stops are recomputed after any of them moves.
+		this.keyboard?.refresh();
 	}
 
 	/**
@@ -273,6 +324,9 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 	ngOnDestroy(): void {
 		this.nativeEventCleanup.forEach((cleanup) => cleanup());
 		this.nativeEventCleanup = [];
+
+		this.keyboard?.destroy();
+		this.keyboard = null;
 
 		if (this.sortableInstance) {
 			this.sortableInstance.destroy();
@@ -306,12 +360,118 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 				this.zone.runOutsideAngular(() => {
 					this.sortableInstance = Sortable.create(container, this.sortableOptions);
 				});
+				this.attachKeyboardSorting(container);
 				if (this.sortableInstance) {
 					this.init.emit(this.sortableInstance);
 				}
 			},
 			{ injector: this.injector }
 		);
+	}
+
+	/**
+	 * Wires keyboard reordering to the same container SortableJS was created on.
+	 *
+	 * The controller is created unconditionally rather than behind `keyboardSorting()`: the input
+	 * can be flipped at any time, and a controller that is attached but reports itself disabled
+	 * costs one idle listener, whereas one that was never created cannot be turned on later.
+	 *
+	 * @param container - Element whose children are the sortable items.
+	 */
+	private attachKeyboardSorting(container: HTMLElement): void {
+		this.keyboard = new SortableKeyboardController({
+			container,
+			isEnabled: () => this.isKeyboardSortingEnabled(),
+			itemSelector: () => this.resolvedOption('draggable'),
+			handleSelector: () => this.resolvedOption('handle'),
+			messages: () => this.keyboardMessagesInEffect(),
+			reorder: (request) => this.applyKeyboardReorder(container, request)
+		});
+		this.keyboard.attach();
+	}
+
+	/**
+	 * Whether the keyboard path is currently open. It answers to the same two options a pointer
+	 * drag does, read off the merged configuration so the global providers, the `options` object
+	 * and the individual inputs all count.
+	 *
+	 * @returns `true` when an item can be picked up with the keyboard.
+	 */
+	private isKeyboardSortingEnabled(): boolean {
+		if (!this.keyboardSorting()) {
+			return false;
+		}
+		const options = this.optionsWithoutEvents;
+		return options.disabled !== true && options.sort !== false;
+	}
+
+	/**
+	 * Reads one string-valued SortableJS option out of the merged configuration.
+	 *
+	 * @param name - Option to read (`draggable` or `handle`).
+	 * @returns The selector, or `undefined` when the option is unset or not a selector.
+	 */
+	private resolvedOption(name: 'draggable' | 'handle'): string | undefined {
+		const value = this.optionsWithoutEvents[name];
+		return typeof value === 'string' ? value : undefined;
+	}
+
+	/**
+	 * Applies one keyboard reorder.
+	 *
+	 * It deliberately mirrors what a pointer drop does: in automatic mode the bound data is
+	 * reordered and the element is moved to match, in manual mode nothing is touched and the
+	 * consuming application reorders its own array from the event — the same contract
+	 * `autoUpdateArray` already documents, so a list does not behave one way under the mouse and
+	 * another under the keyboard.
+	 *
+	 * @param container - Element holding the sortable items.
+	 * @param request - The move to apply, as the keyboard controller computed it.
+	 */
+	private applyKeyboardReorder(container: HTMLElement, request: SortableKeyboardReorder): void {
+		const { item, from, to, reference } = request;
+		const event = this.buildKeyboardSortEvent(container, item, from, to);
+
+		// The listener is installed from an `afterNextRender` callback, which is not a place the
+		// zone can be relied on, so the mutation is put back inside it explicitly. Without this a
+		// zone-based application reorders the array and never repaints.
+		this.zone.run(() => {
+			if (this.autoUpdateArray()) {
+				const bindings = this.getBindings();
+				bindings.injectIntoEvery(to, bindings.extractFromEvery(from));
+				this.renderer.insertBefore(container, item, reference);
+			}
+
+			this.proxyEvent('onUpdate', event);
+			this.proxyEvent('onSort', event);
+		});
+	}
+
+	/**
+	 * Builds the `SortableEvent` a keyboard reorder reports, shaped exactly like the one
+	 * SortableJS hands over for a same-list drop so a single handler serves both paths.
+	 *
+	 * `from` and `to` are the same container because the keyboard never moves an item between
+	 * lists, and `clone` is the item itself — SortableJS types the field as non-nullable and no
+	 * clone exists here.
+	 *
+	 * @param container - Element holding the sortable items.
+	 * @param item - Element that moved.
+	 * @param from - Index it left.
+	 * @param to - Index it reached.
+	 * @returns A SortableJS-shaped event describing the move.
+	 */
+	private buildKeyboardSortEvent(container: HTMLElement, item: HTMLElement, from: number, to: number): SortableEvent {
+		return Object.assign(new CustomEvent('update'), {
+			item,
+			clone: item,
+			from: container,
+			to: container,
+			oldIndex: from,
+			newIndex: to,
+			oldDraggableIndex: from,
+			newDraggableIndex: to
+		}) as unknown as SortableEvent;
 	}
 
 	/**

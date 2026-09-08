@@ -1,5 +1,5 @@
 import { isSignal, WritableSignal } from '@angular/core';
-import { SortableData } from './sortable.types';
+import { SortableData, SortableFormArrayLike } from './sortable.types';
 
 /**
  * Provides a unified interface for manipulating sortable data regardless of its underlying type.
@@ -25,13 +25,13 @@ import { SortableData } from './sortable.types';
  * binding.insert(1, new FormControl('newItem'));
  * ```
  */
-export class SortableBinding {
+export class SortableBinding<T = unknown> {
 	/**
 	 * Creates a new SortableBinding instance.
 	 *
 	 * @param target - The data to bind. Can be a regular array, Angular FormArray, or writable signal.
 	 */
-	constructor(private target: SortableData) {}
+	constructor(private target: SortableData<T>) {}
 
 	/**
 	 * Checks if the target is an Angular writable signal.
@@ -40,7 +40,7 @@ export class SortableBinding {
 	 * @private
 	 */
 	private isSignalArray(): boolean {
-		return isSignal(this.target) && typeof (this.target as any).set === 'function';
+		return isSignal(this.target) && typeof (this.target as WritableSignal<T[]>).set === 'function';
 	}
 
 	/**
@@ -52,8 +52,8 @@ export class SortableBinding {
 	 * @returns The array value from the target.
 	 * @private
 	 */
-	private get arrayValue(): any[] {
-		return this.isSignalArray() ? (this.target as WritableSignal<any[]>)() : (this.target as any[]);
+	private get arrayValue(): T[] {
+		return this.isSignalArray() ? (this.target as WritableSignal<T[]>)() : (this.target as T[]);
 	}
 
 	/**
@@ -65,11 +65,11 @@ export class SortableBinding {
 	 * @param next - The new array value to set.
 	 * @private
 	 */
-	private set arrayValue(next: any[]) {
+	private set arrayValue(next: T[]) {
 		if (this.isSignalArray()) {
-			(this.target as WritableSignal<any[]>).set(next);
+			(this.target as WritableSignal<T[]>).set(next);
 		} else {
-			(this.target as any[]).splice(0, (this.target as any[]).length, ...next);
+			(this.target as T[]).splice(0, (this.target as T[]).length, ...next);
 		}
 	}
 
@@ -84,15 +84,15 @@ export class SortableBinding {
 	 * @param index - The zero-based index at which to insert the item.
 	 * @param item - The item to insert. For FormArrays, this should be an AbstractControl.
 	 */
-	insert(index: number, item: any) {
+	insert(index: number, item: T) {
 		if (this.isFormArray()) {
-			this.target.insert(index, item);
+			(this.target as SortableFormArrayLike<T>).insert(index, item);
 		} else if (this.isSignalArray()) {
 			const copy = [...this.arrayValue];
 			copy.splice(index, 0, item);
 			this.arrayValue = copy;
 		} else {
-			this.target.splice(index, 0, item);
+			(this.target as T[]).splice(index, 0, item);
 		}
 	}
 
@@ -102,8 +102,8 @@ export class SortableBinding {
 	 * @param index - The zero-based index of the item to retrieve.
 	 * @returns The item at the specified index. For FormArrays, returns an AbstractControl.
 	 */
-	get(index: number) {
-		return this.isFormArray() ? this.target.at(index) : this.arrayValue[index];
+	get(index: number): T {
+		return this.isFormArray() ? (this.target as SortableFormArrayLike<T>).at(index) : this.arrayValue[index];
 	}
 
 	/**
@@ -117,18 +117,19 @@ export class SortableBinding {
 	 * @param index - The zero-based index of the item to remove.
 	 * @returns The removed item. For FormArrays, returns an AbstractControl.
 	 */
-	remove(index: number) {
-		let item;
+	remove(index: number): T {
+		let item: T;
 
 		if (this.isFormArray()) {
-			item = this.target.at(index);
-			this.target.removeAt(index);
+			const formArray = this.target as SortableFormArrayLike<T>;
+			item = formArray.at(index);
+			formArray.removeAt(index);
 		} else if (this.isSignalArray()) {
 			const copy = [...this.arrayValue];
 			item = copy.splice(index, 1)[0];
 			this.arrayValue = copy;
 		} else {
-			item = this.target.splice(index, 1)[0];
+			item = (this.target as T[]).splice(index, 1)[0];
 		}
 
 		return item;
@@ -146,6 +147,7 @@ export class SortableBinding {
 	 */
 	private isFormArray(): boolean {
 		// just checking for random FormArray methods not available on a standard array
-		return !!(this.target as any).at && !!(this.target as any).insert && !!(this.target as any).reset;
+		const candidate = this.target as Partial<SortableFormArrayLike<T>>;
+		return !!candidate.at && !!candidate.insert && !!candidate.reset;
 	}
 }

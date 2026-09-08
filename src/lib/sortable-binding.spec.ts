@@ -1,11 +1,11 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { FormArray, FormControl } from '@angular/forms';
+import { AbstractControl, FormArray, FormControl } from '@angular/forms';
 import { SortableBinding } from './sortable-binding';
 
 describe('SortableBinding', () => {
 	describe('with regular array', () => {
-		let binding: SortableBinding;
+		let binding: SortableBinding<string>;
 		let arr: string[];
 
 		beforeEach(() => {
@@ -54,12 +54,14 @@ describe('SortableBinding', () => {
 	});
 
 	describe('with FormArray', () => {
-		let binding: SortableBinding;
+		let binding: SortableBinding<AbstractControl>;
 		let formArray: FormArray;
 
 		beforeEach(() => {
 			formArray = new FormArray([new FormControl('A'), new FormControl('B'), new FormControl('C')]);
-			binding = new SortableBinding(formArray as any);
+			// No cast: a real FormArray satisfies `SortableFormArrayLike`, which is the point of
+			// describing the shape instead of typing the target `any`.
+			binding = new SortableBinding(formArray);
 		});
 
 		it('should insert a control at the given index', () => {
