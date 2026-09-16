@@ -11,6 +11,7 @@ Este paquete forma parte de [Hub UI](https://hubui.dev/en/), una colección de b
 - Documentación: https://hubui.dev/en/sortable/overview/
 - Ejemplos en vivo: https://hubui.dev/en/sortable/examples/
 - Hub UI: https://hubui.dev/en/
+- Hub UI en GitHub (incidencias, roadmap y cómo contribuir): https://github.com/hub-env/hub-ui
 
 ## Migrar desde ngx-sortablejs
 
@@ -710,7 +711,7 @@ Aquí tienes algunos problemas comunes y cómo resolverlos:
 - **Vinculación directa**: Vincula el FormArray directamente, no el FormGroup padre
 - **Acceso a los controles**: Accede a los controles mediante `formArray.controls` en tu plantilla
 
-Si los problemas persisten, abre una incidencia en: https://github.com/carlos-morcillo/ng-hub-ui-sortable/issues
+Si los problemas persisten, abre una incidencia en: https://github.com/hub-env/hub-ui/issues
 
 ## Listas conectadas con `SortableBindings`
 
