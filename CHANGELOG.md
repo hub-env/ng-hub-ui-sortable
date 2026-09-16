@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gathered in [hub-env/hub-ui](https://github.com/hub-env/hub-ui/issues), and the `repository`, `bugs`
   and README links point at the new addresses. GitHub redirects the old ones.
 
+### Fixed
+
+- The migration guide and both READMEs said `ngx-sortablejs` stops compiling at Angular 13. Angular
+  kept converting View Engine libraries with `ngcc` up to v15, so the real limit is Angular 16. The
+  guide now opens with the two paths (the maintained `@worktile/ngx-sortablejs` fork, or this
+  package) and where this package comes from, instead of building the choice on the wrong date.
+
 ## [22.2.0] - 2026-09-08
 
 ### Added

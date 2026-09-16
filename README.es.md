@@ -15,7 +15,7 @@ Este paquete forma parte de [Hub UI](https://hubui.dev/en/), una colección de b
 
 ## Migrar desde ngx-sortablejs
 
-`ngx-sortablejs` publicó su última versión, la 11.1.0, en diciembre de 2020 y es una biblioteca View Engine (anterior a Ivy), así que deja de compilar a partir de Angular 13. **[Lee la guía de migración](./MIGRATION.md)**: recorre miembro a miembro la API antigua, muestra el código antes y después, y es explícita con los cambios de comportamiento que compilan sin quejarse y fallan en tiempo de ejecución.
+`ngx-sortablejs` publicó su última versión, la 11.1.0, en diciembre de 2020 y es una biblioteca View Engine (anterior a Ivy). Angular convertía esas bibliotecas con `ngcc` hasta la v15, así que deja de compilar a partir de Angular 16. **[Lee la guía de migración](./MIGRATION.md)**: recorre miembro a miembro la API antigua, muestra el código antes y después, y es explícita con los cambios de comportamiento que compilan sin quejarse y fallan en tiempo de ejecución.
 
 La guía también dice cuándo *no* migrar aquí: si lo único que necesitas es seguir avanzando con Angular, `@worktile/ngx-sortablejs` mantiene el mismo selector y los mismos nombres de input, y es un cambio más pequeño.
 

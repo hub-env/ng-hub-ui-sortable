@@ -1,4 +1,4 @@
-<!-- Verified against ng-hub-ui-sortable@22.1.3 and the published ngx-sortablejs tarball on 2026-09-01. Every claim was checked by two independent adversarial reviews; see tasks/guias-migracion/ in the workspace repo for the review record. -->
+<!-- Verified against ng-hub-ui-sortable@22.1.3 and the published ngx-sortablejs tarball on 2026-09-01. Every claim was checked by two independent adversarial reviews; see tasks/guias-migracion/ in the workspace repo for the review record. The fork lineage and the @worktile/ngx-sortablejs facts in section 1 were re-checked against @worktile/ngx-sortablejs@22.0.0 (typings and fesm2022 bundle), the npm registry and the GitHub fork metadata on 2026-09-15. -->
 
 # Migrating from ngx-sortablejs to ng-hub-ui-sortable
 
@@ -8,32 +8,39 @@ This guide covers `ngx-sortablejs@11.1.0` (the last published version) and `ng-h
 
 ## 1. Why migrate, and when not to
 
+### Two paths, and where this package comes from
+
+Before you plan a rewrite, know that `ngx-sortablejs` has a maintained fork with the same API, and that `ng-hub-ui-sortable` is a fork of that fork:
+
+1. `ngx-sortablejs` (GitHub `SortableJS/ngx-sortablejs`). Last release `11.1.0`, on 2020-12-25.
+2. `@worktile/ngx-sortablejs` (GitHub `worktile/ngx-sortablejs`, forked from the repository above in 2022). Its first stable release was `15.0.0`, on 2023-08-21, and it has shipped a major for every Angular version from 15 to 22; the current `latest` is `22.0.0`, published 2026-09-09.
+3. `ng-hub-ui-sortable` (GitHub `hub-env/ng-hub-ui-sortable`, forked from the Worktile repository on 2025-12-10). Its own `package.json` describes it as the *"ng-hub-ui fork of @worktile/ngx-sortablejs"*.
+
+Which one you want depends on why you are moving:
+
+| Goal | Path | Template cost |
+| --- | --- | --- |
+| Follow Angular forward and keep the current behaviour | `@worktile/ngx-sortablejs`, pinned to the major that matches your Angular | None. The selector, input and output names are unchanged; only the import specifier moves |
+| Adopt signal inputs, real outputs, individual option inputs, `autoUpdateArray`, CDK-style array helpers, `WritableSignal` bindings | `ng-hub-ui-sortable` | Every template occurrence is rewritten, and the behaviour changes in section 5 apply |
+
+The first row is the low-risk path. The `22.0.0` typings of `@worktile/ngx-sortablejs` declare `selector: "[sortablejs]"`, the inputs `sortablejs`, `sortablejsContainer`, `sortablejsOptions` and `sortablejsCloneFunction`, and the output `sortablejsInit`: the same names as `ngx-sortablejs@11.1.0`. The directive behind them is still the `11.1.0` code. The container is looked up in `ngOnInit`, `Sortable.create` runs inside a `setTimeout`, and only `onAdd`, `onRemove` and `onUpdate` are intercepted. On Angular 16 or later the original package no longer builds (next subsection), so for most readers this fork is the only way to keep the current template API at all.
+
+Two things to check if you take it:
+
+- Match the major to your Angular. From `20.0.0` on, each line's peer range starts at its own major (`22.0.0` declares `@angular/core >= 22.0.0`); `15.0.0` through `19.0.0` all declare `>= 15.0.0`.
+- Not everything carried over. The package exports only `SortablejsDirective`, `SortablejsModule` and the `SortableData` type, so the `ɵa` (`GLOBALS`) and `ɵb` (`SortablejsService`) escape hatches that `11.1.0` exposed in its bundle index are gone. And `transfer` is now called as `this.service.transfer?.(…)`, so the case 5.4 describes, where `11.1.0` threw a `TypeError`, is a silent no-op there as well.
+
+The rest of this guide assumes you chose the second path.
+
 ### The incumbent's situation, stated plainly
 
 `ngx-sortablejs` published `11.1.0` on **2020-12-25**. The registry packument was touched again on 2022-05-10, but no code release followed; `11.1.0` is still the `latest` tag. Its peer range is `@angular/common` and `@angular/core` `^11.0.0`, with `sortablejs >= 1.7.0` as an app-owned peer. The published tarball contains typings, bundles, `metadata.json` and `package.json` — no README.
 
 The peer range is only the visible symptom. **The hard gate is the compilation format.** `ngx-sortablejs@11.1.0` is a **View Engine (pre-Ivy) library**: its tarball ships `ngx-sortablejs.metadata.json` with `"version": 4`, and its `fesm2015`, `esm2015` and `umd` bundles declare their metadata the old way, through `SortablejsDirective.decorators` and `SortablejsDirective.propDecorators`. Grep the bundles and every `lib/*.d.ts` for `ɵfac`, `ɵdir`, `ɵmod` or `ɵɵdefineDirective` and you get zero hits — there is not a single Ivy definition anywhere in the package.
 
-Angular removed View Engine library support and `ngcc` in **v13**. So the incumbent stops being compilable at Angular 13 — three majors below the replacement's floor. On Angular 13 or later, importing `SortablejsModule` fails the build with *"does not appear to be an NgModule class"*.
+Angular kept converting View Engine libraries with `ngcc` during CLI builds up to **v15**. Angular 16 no longer runs `ngcc`, so that is where the incumbent stops compiling, two majors below the replacement's declared floor. On Angular 16 or later, importing `SortablejsModule` fails the build with *"does not appear to be an NgModule class"*.
 
-None of that makes it defective on the version it targets. It is a compact directive that does what its typings say, and an app that intends to sit on Angular 11 forever has no urgent defect pushing it off. But the framing "it does not follow an Angular upgrade forward" is too gentle: **it cannot survive one at all.** Anything already on 13+ has no working incumbent to migrate *from*.
-
-### Check the cheaper option first
-
-`ng-hub-ui-sortable` describes itself in its own `package.json` as an *"ng-hub-ui fork of @worktile/ngx-sortablejs"*. That upstream fork is published and maintained: stable majors `15.0.0` through `21.0.0`, plus a `22.0.0-next.0` prerelease currently carrying the `latest` tag. Its `21.0.0` typings declare `selector: "[sortablejs]"` with the inputs `sortablejs`, `sortablejsContainer`, `sortablejsOptions`, `sortablejsCloneFunction` and the output `sortablejsInit` — the same names as `ngx-sortablejs@11.1.0`, on a standalone directive, with `@angular/core >= 21.0.0` as the peer on that line.
-
-So there are two paths:
-
-| Goal | Path | Template cost |
-| --- | --- | --- |
-| Follow Angular forward, keep the current behaviour | `@worktile/ngx-sortablejs`, pinned to the major matching your Angular | No template changes; the selector and input names are unchanged |
-| Adopt signal inputs, real outputs, individual option inputs, `autoUpdateArray`, array helpers | `ng-hub-ui-sortable` | Every template occurrence is rewritten, plus the behaviour deltas in section 5 |
-
-Because of the View Engine gate above, the first row is not merely the *cheaper* option — for most readers it is the **only** path that preserves the current template API at all. An app on Angular 13+ has already lost the incumbent; the upstream fork is what lets it keep the same selector and inputs while moving forward.
-
-One caveat if you take the upstream-fork path: `@worktile/ngx-sortablejs@21.0.0` exports only `SortablejsDirective`, `SortablejsModule` and the `SortableData` type. The `ɵa` (`GLOBALS`) and `ɵb` (`SortablejsService`) escape hatches that `ngx-sortablejs@11.1.0` shipped in its bundle index are gone there too.
-
-The rest of this guide assumes you chose the second path.
+None of that makes it defective on the version it targets. It is a compact directive that does what its typings say, and an app that intends to sit on Angular 11 forever has no urgent defect pushing it off. But the framing "it does not follow an Angular upgrade forward" is too gentle: **it cannot survive one at all.** Anything already on 16+ has no working incumbent to migrate *from*.
 
 ### What `ng-hub-ui-sortable` is
 
@@ -161,7 +168,7 @@ If your app is still NgModule-based, `SortableModule` and `SortableModule.forRoo
 
 There is no `ng update` schematic and no codemod. The rename is also not a safe find-and-replace: `[sortablejs]`, a bare `sortablejs` attribute, `sortablejsOptions`, `sortablejsContainer` and `sortablejsCloneFunction` share a prefix, so a naive substitution on `sortablejs` corrupts the longer attributes. Replace longest-first, or match on full attribute names.
 
-**There is no side-by-side path and no per-screen rollback.** It is tempting to install both packages and migrate one screen at a time — different selectors (`[sortablejs]` vs `[hubSortable]`), different injection tokens, different service classes, no shared state. It does not work, for a reason that has nothing to do with the two packages coexisting in `node_modules`: `ngx-sortablejs@11.1.0` is a View Engine library (metadata.json v4, zero Ivy definitions), unusable from Angular 13 onward. Once the app is on Angular 18+ — which this migration requires — the incumbent **cannot be compiled at all**, even sitting untouched in `node_modules`. Any component still importing `SortablejsModule` fails the build.
+**There is no side-by-side path and no per-screen rollback.** It is tempting to install both packages and migrate one screen at a time — different selectors (`[sortablejs]` vs `[hubSortable]`), different injection tokens, different service classes, no shared state. It does not work, for a reason that has nothing to do with the two packages coexisting in `node_modules`: `ngx-sortablejs@11.1.0` is a View Engine library (metadata.json v4, zero Ivy definitions), unusable from Angular 16 onward. Once the app is on Angular 18+ — which this migration requires — the incumbent **cannot be compiled at all**, even sitting untouched in `node_modules`. Any component still importing `SortablejsModule` fails the build.
 
 So plan the rename as a single change across the app, and treat **reverting the commit** as your rollback, not running both packages. If the migration is too large for one commit, the units to split it into are branches, not screens.
 
@@ -778,7 +785,7 @@ Neither package exports them publicly. In the incumbent they shipped as typings 
 
 ### 5.18 The Angular upgrade comes first — and it is a View Engine gate, not a peer range
 
-Peer dependencies go from `@angular/common` + `@angular/core` `^11.0.0` to `>= 18.0.0`, so the replacement is not installable on the Angular versions the incumbent targeted. But the binding constraint is the one from section 1: `ngx-sortablejs@11.1.0` is a View Engine library with zero Ivy definitions, so it stops compiling at Angular 13 — well before the replacement's floor. There is no Angular version where both packages build.
+Peer dependencies go from `@angular/common` + `@angular/core` `^11.0.0` to `>= 18.0.0`, so the replacement is not installable on the Angular versions the incumbent targeted. But the binding constraint is the one from section 1: `ngx-sortablejs@11.1.0` is a View Engine library with zero Ivy definitions, so it stops compiling at Angular 16 — two majors below the replacement's floor. There is no Angular version where both packages build.
 
 Plan the migration as the last step of the Angular upgrade, in one commit, with the commit as your rollback. See section 2 for why the flat `>= 18.0.0` range still requires pinning a line deliberately, and for the `minVersion: "17.1.0"` the linker actually enforces.
 
@@ -831,7 +838,7 @@ Before you rename a single attribute:
 
 ## Reporting a problem
 
-If something here is wrong, or a migrated list behaves differently in a way not described above: <https://github.com/carlos-morcillo/ng-hub-ui-sortable/issues>
+If something here is wrong, or a migrated list behaves differently in a way not described above: <https://github.com/hub-env/hub-ui/issues>
 
 What makes a report actionable:
 
