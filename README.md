@@ -820,6 +820,14 @@ If you find this project helpful and would like to support its development, you 
 
 Your support is greatly appreciated and helps maintain and improve this project!
 
+## Commercial support
+
+These libraries are maintained by [Carlos Morcillo Fernández](https://www.carlosmorcillo.com), a freelance frontend architect working with teams that build and maintain Angular applications.
+
+If your team depends on Hub-UI and needs more than an issue thread can solve, that is my day job: architecture audits, design systems, Angular migrations and team mentoring. For projects that also need design and a full team, I run them through [Frog Hub](https://froghub.es), my development studio.
+
+Have a look at [the services](https://www.carlosmorcillo.com/en/services/) or [tell me about your project](https://www.carlosmorcillo.com/en/contact/).
+
 ## License
 
 This project is licensed under the **MIT License**.
@@ -828,4 +836,4 @@ For full license details, see the [LICENSE](LICENSE) file.
 
 ---
 
-Made with love by [Carlos Morcillo Fernandez](https://www.carlosmorcillo.com/)
+Made with love by [Carlos Morcillo Fernández](https://www.carlosmorcillo.com/)
