@@ -1,6 +1,6 @@
 {
 	"name": "ng-hub-ui-sortable",
-	"version": "22.2.2",
+	"version": "22.3.0",
 	"description": "Angular bindings for Sortable.js (ng-hub-ui fork of @worktile/ngx-sortablejs)",
 	"keywords": [
 		"ng-hub-ui",
@@ -32,8 +32,8 @@
 	},
 	"homepage": "https://hubui.dev/en/sortable/overview/",
 	"peerDependencies": {
-		"@angular/common": ">=17.1.0",
-		"@angular/core": ">=17.1.0"
+		"@angular/common": ">=17.3.0",
+		"@angular/core": ">=17.3.0"
 	},
 	"dependencies": {
 		"sortablejs": ">=1.7.0",
