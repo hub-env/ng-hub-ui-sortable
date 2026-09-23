@@ -1,6 +1,6 @@
 {
 	"name": "ng-hub-ui-sortable",
-	"version": "22.2.1",
+	"version": "22.2.2",
 	"description": "Angular bindings for Sortable.js (ng-hub-ui fork of @worktile/ngx-sortablejs)",
 	"keywords": [
 		"ng-hub-ui",
@@ -21,7 +21,7 @@
 		"reusable",
 		"ui-library"
 	],
-	"author": "Carlos Morcillo Fernández <carlos.morcillo@me.com> (https://www.carlosmorcillo.com)",
+	"author": "Carlos Morcillo Fern\u00e1ndez <carlos.morcillo@me.com> (https://www.carlosmorcillo.com)",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -32,8 +32,8 @@
 	},
 	"homepage": "https://hubui.dev/en/sortable/overview/",
 	"peerDependencies": {
-		"@angular/common": ">=18.0.0",
-		"@angular/core": ">=18.0.0"
+		"@angular/common": ">=17.1.0",
+		"@angular/core": ">=17.1.0"
 	},
 	"dependencies": {
 		"sortablejs": ">=1.7.0",
