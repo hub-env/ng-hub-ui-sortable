@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A field inside a sortable list reports its changes again.** To keep SortableJS's own events
+  from reaching a template twice, the directive stopped every `change`, `update`, `filter`… that
+  crossed the list, and several of those names are also native DOM events. A checkbox or a select
+  inside a sortable item fired its `change` and nobody heard it: the box ticked on screen while
+  `ngModel` and the form kept the old value. Only SortableJS's events, which it sends as
+  `CustomEvent`, are stopped now. Breaking changes: none.
+
 ## [22.3.1] - 2026-09-28
 
 ### Changed

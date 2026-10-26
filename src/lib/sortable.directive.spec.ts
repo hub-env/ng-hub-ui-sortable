@@ -350,6 +350,22 @@ describe('SortableDirective', () => {
 
 			expect(directive.nativeEventCleanup.length).toBe(0);
 		});
+
+		it("lets a field's own change event through and still stops SortableJS's", async () => {
+			fixture.detectChanges();
+			await new Promise<void>((resolve) => setTimeout(resolve, 0));
+			const container = fixture.nativeElement.querySelector('.sortable-list') as HTMLElement;
+			const item = container.querySelector('.item') as HTMLElement;
+			const heard: string[] = [];
+			item.addEventListener('change', () => heard.push('item'));
+			container.addEventListener('change', (event) => heard.push(event instanceof CustomEvent ? 'sortable' : 'list'));
+
+			// A checkbox inside an item fires a plain Event; SortableJS fires a CustomEvent on the list.
+			item.dispatchEvent(new Event('change', { bubbles: true }));
+			container.dispatchEvent(new CustomEvent('change', { bubbles: true }));
+
+			expect(heard).toEqual(['item', 'list']);
+		});
 	});
 
 	describe('Container selector', () => {

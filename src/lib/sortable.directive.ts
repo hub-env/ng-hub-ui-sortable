@@ -910,6 +910,10 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 	 * Without this, a template listener may run once for Sortable's native event
 	 * and once again for the directive output.
 	 *
+	 * Only SortableJS's own events are stopped, and it sends them as `CustomEvent`. Several of
+	 * its names are also native DOM events: a plain `change` from a checkbox or a select inside
+	 * a sortable item was stopped too, so no field in a sortable list could report a change.
+	 *
 	 * @param container - Sortable container element
 	 */
 	private suppressNativeSortableEvents(container: HTMLElement): void {
@@ -929,7 +933,9 @@ export class SortableDirective implements OnInit, OnChanges, OnDestroy {
 
 		sortableNativeEvents.forEach((eventName) => {
 			const handler = (event: Event) => {
-				event.stopImmediatePropagation();
+				if (event instanceof CustomEvent) {
+					event.stopImmediatePropagation();
+				}
 			};
 
 			container.addEventListener(eventName, handler, true);
